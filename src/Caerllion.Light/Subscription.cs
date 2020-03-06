@@ -2,7 +2,7 @@
 
 namespace Caerllion.Light
 {
-    public struct Subscription : IDisposable
+    public readonly struct Subscription : IDisposable
     {
         private readonly int _id;
         private readonly MessageHub _messageHub;

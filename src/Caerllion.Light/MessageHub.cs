@@ -16,7 +16,7 @@ namespace Caerllion.Light
                 SingleWriter = false
             });
 
-        private readonly List<IHandler> _handlers = new List<IHandler>();
+        private readonly List<IMessageHandler> _handlers = new List<IMessageHandler>();
         private int _lastHandlerId;
 
         public MessageHub()
@@ -29,7 +29,7 @@ namespace Caerllion.Light
             _messages.Writer.TryComplete();
         }
 
-        private void OnError(Exception ex)
+        private void OnError(object message, Exception ex)
         {
             //TODO error on handle message
         }
@@ -51,11 +51,11 @@ namespace Caerllion.Light
         {
             while (_messages.Reader.TryRead(out var message))
             {
-                if (message is IHandler addHandler)
+                if (message is IMessageHandler addHandler)
                 {
                     _handlers.Add(addHandler);
                 }
-                else if (message is RemoveHandler removeHandler)
+                else if (message is RemoveHandlerMessage removeHandler)
                 {
                     _handlers.RemoveAll(h => h.Id == removeHandler.Id);
                 }
@@ -70,8 +70,8 @@ namespace Caerllion.Light
 
                     if (!handled)
                     {
-                        if (message is IInvokeMethod invokeMethod)
-                            invokeMethod.EnsureTaskCompleted();
+                        if (message is ICompletableMessage completableMessage)
+                            completableMessage.OnMessageNotHandled();
                         else
                             OnMessageNotHandled(message);
                     }
@@ -82,7 +82,7 @@ namespace Caerllion.Light
         public Subscription Subscribe<TMessage>(Action<TMessage> handler)
         {
             var id = Interlocked.Increment(ref _lastHandlerId);
-            var h = new MessageSyncHandler<TMessage>(id, handler, OnError);
+            var h = new MessageHandler<TMessage>(id, handler, OnError);
             _messages.Writer.TryWrite(h);
             return new Subscription(h.Id, this);
         }
@@ -90,7 +90,7 @@ namespace Caerllion.Light
         public Subscription Subscribe<TMessage>(Func<TMessage, Task> handler)
         {
             var id = Interlocked.Increment(ref _lastHandlerId);
-            var h = new MessageAsyncHandler<TMessage>(id, handler, OnError);
+            var h = new MessageHandlerAsync<TMessage>(id, handler, OnError);
             _messages.Writer.TryWrite(h);
             return new Subscription(h.Id, this);
         }
@@ -99,7 +99,7 @@ namespace Caerllion.Light
             where TRequest : IRequest<TReply>
         {
             var id = Interlocked.Increment(ref _lastHandlerId);
-            var h = new InvokeMethodSyncHandler<TRequest, TReply>(id, handler);
+            var h = new InvokeMethodHandler<TRequest, TReply>(id, handler);
             _messages.Writer.TryWrite(h);
             return new Subscription(h.Id, this);
         }
@@ -108,14 +108,14 @@ namespace Caerllion.Light
             where TRequest : IRequest<TReply>
         {
             var id = Interlocked.Increment(ref _lastHandlerId);
-            var h = new InvokeMethodAsyncHandler<TRequest, TReply>(id, handler);
+            var h = new InvokeMethodHandlerAsync<TRequest, TReply>(id, handler);
             _messages.Writer.TryWrite(h);
             return new Subscription(h.Id, this);
         }
 
         internal void Unsubscibe(int id)
         {
-            _messages.Writer.TryWrite(new RemoveHandler(id));
+            _messages.Writer.TryWrite(new RemoveHandlerMessage(id));
         }
 
         public void Publish(object message)
@@ -126,7 +126,7 @@ namespace Caerllion.Light
         public Task<TReply> InvokeAsync<TRequest, TReply>(TRequest request)
             where TRequest : IRequest<TReply>
         {
-            var invokeMethod = new InvokeMethod<TRequest, TReply>(request);
+            var invokeMethod = new InvokeMethodMessage<TRequest, TReply>(request);
             if (!_messages.Writer.TryWrite(invokeMethod))
                 invokeMethod.ReplySource.TrySetCanceled();
             return invokeMethod.ReplySource.Task;

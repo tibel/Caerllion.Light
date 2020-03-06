@@ -1,6 +1,6 @@
 ﻿namespace Caerllion.Light
 {
-    internal interface IHandler
+    internal interface IMessageHandler
     {
         int Id { get; }
 

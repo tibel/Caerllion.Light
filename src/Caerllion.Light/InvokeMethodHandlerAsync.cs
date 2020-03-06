@@ -3,12 +3,12 @@ using System.Threading.Tasks;
 
 namespace Caerllion.Light
 {
-    internal sealed class InvokeMethodAsyncHandler<TRequest, TReply> : IHandler
+    internal sealed class InvokeMethodHandlerAsync<TRequest, TReply> : IMessageHandler
         where TRequest : IRequest<TReply>
     {
         private readonly Func<TRequest, Task<TReply>> _handler;
 
-        public InvokeMethodAsyncHandler(int id, Func<TRequest, Task<TReply>> handler)
+        public InvokeMethodHandlerAsync(int id, Func<TRequest, Task<TReply>> handler)
         {
             Id = id;
             _handler = handler;
@@ -18,10 +18,10 @@ namespace Caerllion.Light
 
         public bool TryHandle(object message)
         {
-            return message is InvokeMethod<TRequest, TReply> im && !im.IsHandled && Handle(im);
+            return message is InvokeMethodMessage<TRequest, TReply> im && !im.IsHandled && Handle(im);
         }
 
-        private bool Handle(InvokeMethod<TRequest, TReply> message)
+        private bool Handle(InvokeMethodMessage<TRequest, TReply> message)
         {
             message.BeginExecute();
 

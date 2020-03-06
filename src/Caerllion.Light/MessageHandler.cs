@@ -2,12 +2,12 @@
 
 namespace Caerllion.Light
 {
-    internal sealed class MessageSyncHandler<TMessage> : IHandler
+    internal sealed class MessageHandler<TMessage> : IMessageHandler
     {
         private readonly Action<TMessage> _handler;
-        private readonly Action<Exception> _onError;
+        private readonly Action<object, Exception> _onError;
 
-        public MessageSyncHandler(int id, Action<TMessage> handler, Action<Exception> onError)
+        public MessageHandler(int id, Action<TMessage> handler, Action<object, Exception> onError)
         {
             Id = id;
             _handler = handler;
@@ -29,7 +29,7 @@ namespace Caerllion.Light
             }
             catch (Exception ex)
             {
-                _onError(ex);
+                _onError(message, ex);
             }
 
             return true;

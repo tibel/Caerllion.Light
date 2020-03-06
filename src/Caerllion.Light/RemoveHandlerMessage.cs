@@ -1,8 +1,8 @@
 ﻿namespace Caerllion.Light
 {
-    internal sealed class RemoveHandler
+    internal sealed class RemoveHandlerMessage
     {
-        public RemoveHandler(int id)
+        public RemoveHandlerMessage(int id)
         {
             Id = id;
         }

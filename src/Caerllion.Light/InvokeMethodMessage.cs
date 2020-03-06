@@ -2,10 +2,10 @@
 
 namespace Caerllion.Light
 {
-    internal sealed class InvokeMethod<TRequest, TReply> : IInvokeMethod
+    internal sealed class InvokeMethodMessage<TRequest, TReply> : ICompletableMessage
         where TRequest : IRequest<TReply>
     {
-        public InvokeMethod(TRequest request)
+        public InvokeMethodMessage(TRequest request)
         {
             Request = request;
             ReplySource = new TaskCompletionSource<TReply>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -22,15 +22,14 @@ namespace Caerllion.Light
             IsHandled = true;
         }
 
-        void IInvokeMethod.EnsureTaskCompleted()
+        void ICompletableMessage.OnMessageNotHandled()
         {
-            if (!IsHandled)
-                ReplySource.TrySetCanceled();
+            ReplySource.TrySetCanceled();
         }
     }
 
-    internal interface IInvokeMethod
+    internal interface ICompletableMessage
     {
-        void EnsureTaskCompleted();
+        void OnMessageNotHandled();
     }
 }
