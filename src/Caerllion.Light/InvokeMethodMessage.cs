@@ -3,7 +3,6 @@
 namespace Caerllion.Light
 {
     internal sealed class InvokeMethodMessage<TRequest, TReply> : ICompletableMessage
-        where TRequest : IRequest<TReply>
     {
         public InvokeMethodMessage(TRequest request)
         {
@@ -26,10 +25,5 @@ namespace Caerllion.Light
         {
             ReplySource.TrySetCanceled();
         }
-    }
-
-    internal interface ICompletableMessage
-    {
-        void OnMessageNotHandled();
     }
 }

@@ -3,7 +3,6 @@
 namespace Caerllion.Light
 {
     internal sealed class InvokeMethodHandler<TRequest, TReply> : IMessageHandler
-        where TRequest : IRequest<TReply>
     {
         private readonly Func<TRequest, TReply> _handler;
 
@@ -20,19 +19,18 @@ namespace Caerllion.Light
             return message is InvokeMethodMessage<TRequest, TReply> im && !im.IsHandled && Handle(im);
         }
 
-        private bool Handle(object message)
+        private bool Handle(InvokeMethodMessage<TRequest, TReply> message)
         {
-            var invokeMethod = (InvokeMethodMessage<TRequest, TReply>)message;
-            invokeMethod.BeginExecute();
+            message.BeginExecute();
 
             try
             {
-                var result = _handler.Invoke(invokeMethod.Request);
-                invokeMethod.ReplySource.TrySetResult(result);
+                var result = _handler.Invoke(message.Request);
+                message.ReplySource.TrySetResult(result);
             }
             catch (Exception ex)
             {
-                invokeMethod.ReplySource.TrySetException(ex);
+                message.ReplySource.TrySetException(ex);
             }
 
             return true;

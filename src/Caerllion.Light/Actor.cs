@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 
 namespace Caerllion.Light
 {
-    public sealed class Actor<T>
+    public sealed class Actor<T> : IDisposable
     {
         private readonly Channel<T> _channel = Channel.CreateUnbounded<T>(
             new UnboundedChannelOptions
@@ -15,9 +15,9 @@ namespace Caerllion.Light
             });
 
         private readonly Func<T, Task> _processor;
-        private readonly Action<Exception> _onError;
+        private readonly Action<T, Exception> _onError;
 
-        public Actor(Func<T, Task> processor, Action<Exception> onError)
+        public Actor(Func<T, Task> processor, Action<T, Exception> onError)
         {
             _processor = processor;
             _onError = onError;
@@ -30,9 +30,9 @@ namespace Caerllion.Light
             _channel.Writer.TryComplete();
         }
 
-        public void Send(T message)
+        public bool Send(T message)
         {
-            _channel.Writer.TryWrite(message);
+            return _channel.Writer.TryWrite(message);
         }
 
         private async void Process()
@@ -47,7 +47,7 @@ namespace Caerllion.Light
                     }
                     catch (Exception ex)
                     {
-                        _onError(ex);
+                        _onError(message, ex);
                     }
                 }
             }

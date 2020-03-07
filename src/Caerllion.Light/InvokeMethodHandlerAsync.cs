@@ -4,7 +4,6 @@ using System.Threading.Tasks;
 namespace Caerllion.Light
 {
     internal sealed class InvokeMethodHandlerAsync<TRequest, TReply> : IMessageHandler
-        where TRequest : IRequest<TReply>
     {
         private readonly Func<TRequest, Task<TReply>> _handler;
 
