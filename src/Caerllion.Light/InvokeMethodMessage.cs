@@ -2,7 +2,7 @@
 
 namespace Caerllion.Light
 {
-    internal sealed class InvokeMethodMessage<TRequest, TReply> : ICompletableMessage
+    internal sealed class InvokeMethodMessage<TRequest, TReply> : ICompletableMessage, IHandleOnceMessage
     {
         public InvokeMethodMessage(TRequest request)
         {
@@ -14,11 +14,19 @@ namespace Caerllion.Light
 
         public TaskCompletionSource<TReply> ReplySource { get; }
 
-        public bool IsHandled { get; private set; }
+        private bool _isHandled;
 
-        public void BeginExecute()
+        public bool TryBeginHandle()
         {
-            IsHandled = true;
+            if (_isHandled)
+            {
+                return false;
+            }
+            else
+            {
+                _isHandled = true;
+                return true;
+            }
         }
 
         void ICompletableMessage.OnMessageNotHandled()

@@ -17,13 +17,11 @@ namespace Caerllion.Light
 
         public bool TryHandle(object message)
         {
-            return message is InvokeMethodMessage<TRequest, TReply> im && !im.IsHandled && Handle(im);
+            return message is InvokeMethodMessage<TRequest, TReply> im && im.TryBeginHandle() && Handle(im);
         }
 
         private bool Handle(InvokeMethodMessage<TRequest, TReply> message)
         {
-            message.BeginExecute();
-
             try
             {
                 _handler.Invoke(message.Request)
@@ -37,6 +35,10 @@ namespace Caerllion.Light
                         else
                             tcs.TrySetResult(t.Result);
                     }, message.ReplySource, TaskContinuationOptions.ExecuteSynchronously);
+            }
+            catch (OperationCanceledException)
+            {
+                message.ReplySource.TrySetCanceled();
             }
             catch (Exception ex)
             {
