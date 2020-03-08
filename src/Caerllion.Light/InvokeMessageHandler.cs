@@ -2,11 +2,11 @@
 
 namespace Caerllion.Light
 {
-    internal sealed class InvokeMethodHandler<TRequest, TReply> : IMessageHandler
+    internal sealed class InvokeMessageHandler<TRequest, TReply> : IMessageHandler
     {
         private readonly Func<TRequest, TReply> _handler;
 
-        public InvokeMethodHandler(int id, Func<TRequest, TReply> handler)
+        public InvokeMessageHandler(int id, Func<TRequest, TReply> handler)
         {
             Id = id;
             _handler = handler;
@@ -16,23 +16,26 @@ namespace Caerllion.Light
 
         public bool TryHandle(object message)
         {
-            return message is InvokeMethodMessage<TRequest, TReply> im && im.TryBeginHandle() && Handle(im);
+            return message is InvokeMessage<TRequest, TReply> m && Handle(m);
         }
 
-        private bool Handle(InvokeMethodMessage<TRequest, TReply> message)
+        private bool Handle(InvokeMessage<TRequest, TReply> message)
         {
+            if (!message.TryBeginHandle())
+                return false;
+
             try
             {
                 var result = _handler.Invoke(message.Request);
-                message.ReplySource.TrySetResult(result);
+                message.SetResult(result);
             }
             catch (OperationCanceledException)
             {
-                message.ReplySource.TrySetCanceled();
+                message.SetCanceled();
             }
             catch (Exception ex)
             {
-                message.ReplySource.TrySetException(ex);
+                message.SetException(ex);
             }
 
             return true;
