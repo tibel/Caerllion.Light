@@ -29,14 +29,18 @@ namespace Caerllion.Light
             _messages.Writer.TryComplete();
         }
 
-        private void OnError(object message, Exception ex)
+        public event EventHandler<MessageHandlingEventArgs> Error;
+
+        public event EventHandler<MessageHandlingEventArgs> Unhandled;
+
+        private void OnError(object message, Exception exception)
         {
-            //TODO error on handle message
+            Error?.Invoke(this, new MessageHandlingEventArgs(message, exception));
         }
 
         private void OnMessageNotHandled(object message)
         {
-            //TODO message not handled
+            Unhandled?.Invoke(this, new MessageHandlingEventArgs(message, null));
         }
 
         private async void HandleMessages()
