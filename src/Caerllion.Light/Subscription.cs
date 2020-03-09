@@ -15,7 +15,7 @@ namespace Caerllion.Light
 
         public void Dispose()
         {
-            _messageHub?.Unsubscibe(_id);
+            _messageHub?.Publish(new RemoveHandlerMessage(_id));
         }
     }
 }

@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Caerllion.Light
 {
-    public sealed class MessageHub : IDisposable
+    public sealed class MessageHub
     {
         private readonly Channel<object> _messages = Channel.CreateUnbounded<object>(
             new UnboundedChannelOptions
@@ -24,24 +24,15 @@ namespace Caerllion.Light
             HandleMessages();
         }
 
-        public void Dispose()
-        {
-            _messages.Writer.TryComplete();
-        }
+        public bool Complete() => _messages.Writer.TryComplete();
 
         public event EventHandler<MessageHandlingEventArgs> Error;
 
         public event EventHandler<MessageHandlingEventArgs> Unhandled;
 
-        private void OnError(object message, Exception exception)
-        {
-            Error?.Invoke(this, new MessageHandlingEventArgs(message, exception));
-        }
+        private void OnError(object message, Exception exception) => Error?.Invoke(this, new MessageHandlingEventArgs(message, exception));
 
-        private void OnMessageNotHandled(object message)
-        {
-            Unhandled?.Invoke(this, new MessageHandlingEventArgs(message, null));
-        }
+        private void OnMessageNotHandled(object message) => Unhandled?.Invoke(this, new MessageHandlingEventArgs(message, null));
 
         private async void HandleMessages()
         {
@@ -74,8 +65,8 @@ namespace Caerllion.Light
 
                     if (!handled)
                     {
-                        if (message is ICompletableMessage completableMessage)
-                            completableMessage.OnMessageNotHandled();
+                        if (message is InvokeMessage invokeMessage)
+                            invokeMessage.SetCanceled();
                         else
                             OnMessageNotHandled(message);
                     }
@@ -83,63 +74,39 @@ namespace Caerllion.Light
             }
         }
 
-        public Subscription Subscribe<TMessage>(Action<TMessage> handler)
+        private int GetNextHandlerId()
         {
-            var id = Interlocked.Increment(ref _lastHandlerId);
-            var h = new MessageHandler<TMessage>(id, handler, OnError);
-            _messages.Writer.TryWrite(h);
-            return new Subscription(h.Id, this);
+            return Interlocked.Increment(ref _lastHandlerId);
         }
 
-        public Subscription Subscribe<TMessage>(Func<TMessage, Task> handler)
+        private Subscription Subscibe(IMessageHandler handler)
         {
-            var id = Interlocked.Increment(ref _lastHandlerId);
-            var h = new MessageHandlerAsync<TMessage>(id, handler, OnError);
-            _messages.Writer.TryWrite(h);
-            return new Subscription(h.Id, this);
+            Publish(handler);
+            return new Subscription(handler.Id, this);
         }
+
+        public Subscription Subscribe<TMessage>(Action<TMessage> handler) => Subscibe(new MessageHandler<TMessage>(GetNextHandlerId(), handler, OnError));
+
+        public Subscription Subscribe<TMessage>(Func<TMessage, Task> handler) => Subscibe(new MessageHandlerAsync<TMessage>(GetNextHandlerId(), handler, OnError));
 
         public Subscription Subscribe<TRequest, TReply>(Func<TRequest, TReply> handler)
-            where TRequest : IRequest<TReply>
-        {
-            var id = Interlocked.Increment(ref _lastHandlerId);
-            var h = new InvokeMessageHandler<TRequest, TReply>(id, handler);
-            _messages.Writer.TryWrite(h);
-            return new Subscription(h.Id, this);
-        }
+            where TRequest : IRequest<TReply> => Subscibe(new InvokeMessageHandler<TRequest, TReply>(GetNextHandlerId(), handler));
 
         public Subscription Subscribe<TRequest, TReply>(Func<TRequest, Task<TReply>> handler)
-            where TRequest : IRequest<TReply>
-        {
-            var id = Interlocked.Increment(ref _lastHandlerId);
-            var h = new InvokeMessageHandlerAsync<TRequest, TReply>(id, handler);
-            _messages.Writer.TryWrite(h);
-            return new Subscription(h.Id, this);
-        }
+            where TRequest : IRequest<TReply> => Subscibe(new InvokeMessageHandlerAsync<TRequest, TReply>(GetNextHandlerId(), handler));
 
-        public Subscription Subscribe(Func<object, bool> handler)
-        {
-            var id = Interlocked.Increment(ref _lastHandlerId);
-            var h = new GenericMessageHandler(id, handler, OnError);
-            _messages.Writer.TryWrite(h);
-            return new Subscription(h.Id, this);
-        }
+        public Subscription Subscribe(Func<object, bool> handler) => Subscibe(new GenericMessageHandler(GetNextHandlerId(), handler, OnError));
 
-        internal void Unsubscibe(int id)
+        public bool Publish(object message)
         {
-            _messages.Writer.TryWrite(new RemoveHandlerMessage(id));
-        }
-
-        public void Publish(object message)
-        {
-            _messages.Writer.TryWrite(message);
+            return _messages.Writer.TryWrite(message);
         }
 
         public Task<TReply> InvokeAsync<TRequest, TReply>(TRequest request)
             where TRequest : IRequest<TReply>
         {
             var invokeMethod = new InvokeMessage<TRequest, TReply>(request);
-            if (!_messages.Writer.TryWrite(invokeMethod))
+            if (!Publish(invokeMethod))
                 invokeMethod.SetCanceled();
             return invokeMethod.Completion;
         }

@@ -4,22 +4,28 @@ using System.Threading.Tasks;
 
 namespace Caerllion.Light
 {
-    internal class InvokeMessage<TReply> : ICompletableMessage
+    internal abstract class InvokeMessage
     {
-        private readonly TaskCompletionSource<TReply> _replySource = new TaskCompletionSource<TReply>(TaskCreationOptions.RunContinuationsAsynchronously);
         private int _handled;
-
-        public Task<TReply> Completion => _replySource.Task;
-
-        public void SetCanceled() => _replySource.TrySetCanceled();
-
-        public void SetException(Exception ex) => _replySource.TrySetException(ex);
-
-        public void SetResult(TReply result) => _replySource.TrySetResult(result);
 
         public bool TryBeginHandle() => Interlocked.Increment(ref _handled) == 1;
 
-        void ICompletableMessage.OnMessageNotHandled() => SetCanceled();
+        public abstract void SetCanceled();
+
+        public abstract void SetException(Exception ex);
+    }
+
+    internal abstract class InvokeMessage<TReply> : InvokeMessage
+    {
+        private readonly TaskCompletionSource<TReply> _replySource = new TaskCompletionSource<TReply>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Task<TReply> Completion => _replySource.Task;
+
+        public sealed override void SetCanceled() => _replySource.TrySetCanceled();
+
+        public sealed override void SetException(Exception ex) => _replySource.TrySetException(ex);
+
+        public void SetResult(TReply result) => _replySource.TrySetResult(result);
     }
 
     internal sealed class InvokeMessage<TRequest, TReply> : InvokeMessage<TReply>
