@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="src/Caerllion.Light/Caerllion.Light.csproj" />
+  <Project Path="tests/Caerllion.Light.Tests/Caerllion.Light.Tests.csproj" />
+</Solution>

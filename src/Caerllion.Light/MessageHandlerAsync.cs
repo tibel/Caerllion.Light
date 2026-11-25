@@ -1,48 +1,44 @@
-﻿using System;
+using System;
 using System.Threading.Tasks;
 
-namespace Caerllion.Light
+namespace Caerllion.Light;
+
+internal sealed class MessageHandlerAsync<TMessage> : IMessageHandler
 {
-    internal sealed class MessageHandlerAsync<TMessage> : IMessageHandler
+    private readonly Func<TMessage, Task> _handler;
+    private readonly Action<object, Exception> _onError;
+
+    public MessageHandlerAsync(int id, Func<TMessage, Task> handler, Action<object, Exception> onError)
     {
-        private readonly Func<TMessage, Task> _handler;
-        private readonly Action<object, Exception> _onError;
+        Id = id;
+        _handler = handler;
+        _onError = onError;
+    }
 
-        public MessageHandlerAsync(int id, Func<TMessage, Task> handler, Action<object, Exception> onError)
+    public int Id { get; }
+
+    public async Task<bool> TryHandleAsync(object message)
+    {
+        if (message is not TMessage m)
+            return false;
+
+        await HandleAsync(m).ConfigureAwait(false);
+        return true;
+    }
+
+    private async Task HandleAsync(TMessage message)
+    {
+        try
         {
-            Id = id;
-            _handler = handler;
-            _onError = onError;
+            await _handler(message).ConfigureAwait(false);
         }
-
-        public int Id { get; }
-
-        public bool TryHandle(object message)
+        catch (OperationCanceledException ex)
         {
-            return message is TMessage m && Handle(m);
+            _onError((object)message!, ex);
         }
-
-        private bool Handle(TMessage message)
+        catch (Exception ex)
         {
-            try
-            {
-                _handler(message)
-                    .ContinueWith(OnCompleted, message, TaskContinuationOptions.ExecuteSynchronously | TaskContinuationOptions.NotOnRanToCompletion);
-            }
-            catch (Exception ex)
-            {
-                _onError(message, ex);
-            }
-
-            return true;
-        }
-
-        private void OnCompleted(Task t, object message)
-        {
-            if (t.IsCanceled)
-                _onError(message, new OperationCanceledException());
-            else if (t.IsFaulted)
-                _onError(message, t.Exception.InnerException);
+            _onError((object)message!, ex);
         }
     }
 }

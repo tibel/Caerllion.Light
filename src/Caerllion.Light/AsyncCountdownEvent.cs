@@ -1,47 +1,60 @@
-﻿using System;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Caerllion.Light
+namespace Caerllion.Light;
+
+/// <summary>Provides an awaitable countdown synchronization primitive.</summary>
+public sealed class AsyncCountdownEvent
 {
-    public sealed class AsyncCountdownEvent
+    private readonly Lock _sync = new();
+    private readonly TaskCompletionSource _tcs =
+        new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private int _remainingCount;
+
+    /// <summary>Creates a countdown with the specified initial count.</summary>
+    public AsyncCountdownEvent(int initialCount)
     {
-        private readonly TaskCompletionSource<object> _tcs;
-        private int _remainingCount;
+        ArgumentOutOfRangeException.ThrowIfNegative(initialCount);
 
-        public AsyncCountdownEvent(int initialCount)
+        _remainingCount = initialCount;
+
+        if (initialCount == 0)
+            _tcs.TrySetResult();
+    }
+
+    /// <summary>Returns a task that completes when the count reaches zero.</summary>
+    public Task WaitAsync()
+    {
+        return _tcs.Task;
+    }
+
+    /// <summary>Increments the remaining count.</summary>
+    public void Increment()
+    {
+        lock (_sync)
         {
-            if (initialCount < 0)
-                throw new ArgumentOutOfRangeException(nameof(initialCount));
-
-            _tcs = new TaskCompletionSource<object>();
-            _remainingCount = initialCount;
-
-            if (initialCount == 0)
-                _tcs.TrySetResult(null);
-        }
-
-        public Task WaitAsync()
-        {
-            return _tcs.Task;
-        }
-
-        public void Increment()
-        {
-            var newCount = Interlocked.Increment(ref _remainingCount);
-            if (newCount == 0)
-                _tcs.TrySetResult(null);
-            else if (newCount < 0 || _tcs.Task.IsCompleted)
+            if (_tcs.Task.IsCompleted)
                 throw new InvalidOperationException();
-        }
 
-        public void Decrement()
-        {
-            var newCount = Interlocked.Decrement(ref _remainingCount);
-            if (newCount == 0)
-                _tcs.TrySetResult(null);
-            else if (newCount < 0)
+            if (_remainingCount == int.MaxValue)
                 throw new InvalidOperationException();
+
+            _remainingCount++;
+        }
+    }
+
+    /// <summary>Decrements the remaining count.</summary>
+    public void Decrement()
+    {
+        lock (_sync)
+        {
+            if (_remainingCount == 0)
+                throw new InvalidOperationException();
+
+            _remainingCount--;
+            if (_remainingCount == 0)
+                _tcs.TrySetResult();
         }
     }
 }

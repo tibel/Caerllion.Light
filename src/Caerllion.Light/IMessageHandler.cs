@@ -1,9 +1,10 @@
-﻿namespace Caerllion.Light
-{
-    internal interface IMessageHandler
-    {
-        int Id { get; }
+using System.Threading.Tasks;
 
-        bool TryHandle(object message);
-    }
+namespace Caerllion.Light;
+
+internal interface IMessageHandler
+{
+    int Id { get; }
+
+    Task<bool> TryHandleAsync(object message);
 }

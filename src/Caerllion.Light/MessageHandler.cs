@@ -1,38 +1,38 @@
-﻿using System;
+using System;
+using System.Threading.Tasks;
 
-namespace Caerllion.Light
+namespace Caerllion.Light;
+
+internal sealed class MessageHandler<TMessage> : IMessageHandler
 {
-    internal sealed class MessageHandler<TMessage> : IMessageHandler
+    private readonly Action<TMessage> _handler;
+    private readonly Action<object, Exception> _onError;
+
+    public MessageHandler(int id, Action<TMessage> handler, Action<object, Exception> onError)
     {
-        private readonly Action<TMessage> _handler;
-        private readonly Action<object, Exception> _onError;
+        Id = id;
+        _handler = handler;
+        _onError = onError;
+    }
 
-        public MessageHandler(int id, Action<TMessage> handler, Action<object, Exception> onError)
+    public int Id { get; }
+
+    public Task<bool> TryHandleAsync(object message)
+    {
+        return Task.FromResult(message is TMessage m && Handle(m));
+    }
+
+    private bool Handle(TMessage message)
+    {
+        try
         {
-            Id = id;
-            _handler = handler;
-            _onError = onError;
+            _handler(message);
+        }
+        catch (Exception ex)
+        {
+            _onError((object)message!, ex);
         }
 
-        public int Id { get; }
-
-        public bool TryHandle(object message)
-        {
-            return message is TMessage m && Handle(m);
-        }
-
-        private bool Handle(TMessage message)
-        {
-            try
-            {
-                _handler(message);
-            }
-            catch (Exception ex)
-            {
-                _onError(message, ex);
-            }
-
-            return true;
-        }
+        return true;
     }
 }

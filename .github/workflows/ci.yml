@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-test-pack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '11.0.x'
+
+      - name: Restore
+        run: dotnet restore Caerllion.Light.slnx
+
+      - name: Build
+        run: dotnet build Caerllion.Light.slnx --configuration Release --no-restore --nologo
+
+      - name: Test
+        run: dotnet test tests/Caerllion.Light.Tests/Caerllion.Light.Tests.csproj --configuration Release --no-build --nologo
+
+      - name: Pack
+        run: dotnet pack src/Caerllion.Light/Caerllion.Light.csproj --configuration Release --no-build --nologo --output artifacts
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: nuget-package
+          path: artifacts/*
